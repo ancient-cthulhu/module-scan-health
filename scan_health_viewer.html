@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veracode Scan Health Report</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg:#0a0c10;
+  --surface:#12151c;
+  --surface2:#191d28;
+  --surface3:#1f2433;
+  --border:#1e2436;
+  --border-strong:#2a3248;
+  --text:#e0e4ee;
+  --text-secondary:#b0b8cc;
+  --dim:#8892aa;
+  --muted:#586278;
+  --accent:#5b8af0;
+  --accent-dim:rgba(91,138,240,.08);
+  --pass:#34c98e;
+  --warn:#e8a820;
+  --fail:#e85454;
+  --err:#9878e0;
+  --info-color:#6878a0;
+  --ah-broken:#e85454;
+  --ah-degraded:#d88828;
+  --ah-healthy:#34c98e;
+  --is-fatal:#d04040;
+  --is-warn:#e8a820;
+  --is-info:#6878a0;
+  --is-clean:#30b8a8;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'DM Sans',system-ui,sans-serif;
+  --radius:10px;
+  --radius-sm:6px;
+  --radius-lg:14px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased}
+.hidden{display:none !important}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* ── Upload screen ── */
+#upload{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:24px;padding:40px}
+#upload h1{font-size:26px;font-weight:700;letter-spacing:-.3px}
+#upload p{color:var(--dim);font-size:14px}
+#drop{width:460px;max-width:100%;border:2px dashed var(--border-strong);border-radius:var(--radius-lg);padding:60px 32px;text-align:center;cursor:pointer;background:var(--surface);transition:.2s}
+#drop:hover,#drop.over{border-color:var(--accent);background:var(--surface2)}
+#drop .ic{font-size:40px;margin-bottom:14px;opacity:.45}
+#drop .lb{font-size:15px;font-weight:500}
+#drop .ht{font-size:12px;color:var(--muted);margin-top:8px}
+#fi{display:none}
+
+/* ── Top bar ── */
+.bar{position:sticky;top:0;z-index:200;background:rgba(10,12,16,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 32px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;min-height:44px}
+.bar-left{display:flex;align-items:center;gap:10px}
+.bar h1{font-size:15px;font-weight:600;letter-spacing:-.2px}
+.bar .m{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.bar-actions{display:flex;gap:6px;align-items:center}
+.bar button{padding:5px 12px;font-size:11px;font-family:var(--sans);font-weight:500;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--dim);cursor:pointer;transition:.15s}
+.bar button:hover{background:var(--surface2);color:var(--text)}
+.bar button.copied{border-color:var(--pass);color:var(--pass)}
+
+/* ── Command center / Hero summary ── */
+.hero{padding:28px 32px 0}
+.hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.hero-text h2{font-size:22px;font-weight:700;letter-spacing:-.3px;margin-bottom:6px}
+.hero-text .hero-sub{font-size:14px;color:var(--dim);line-height:1.5;max-width:600px}
+.hero-text .hero-sub strong{color:var(--text-secondary);font-weight:600}
+.hero-app{font-size:16px;font-weight:500;color:var(--accent);font-family:var(--mono);margin-bottom:4px}
+/* (hero action buttons removed) */
+
+/* ── Stats cards row ── */
+.stats-row{padding:20px 32px 0;display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.stats-section{padding:16px 18px;border-radius:var(--radius-lg);background:var(--surface)}
+.ss-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ss-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
+.ss-count{font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400}
+.ss-tip{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:9px;font-weight:700;color:var(--muted);border:1px solid var(--border);cursor:help;flex-shrink:0;margin-left:2px;position:relative}
+.ss-tip:hover{color:var(--dim);border-color:var(--dim)}
+.ss-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.sc{background:var(--surface2);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:.15s;position:relative;display:flex;align-items:center;gap:12px}
+.sc:hover{background:var(--surface3);transform:translateY(-1px)}
+.sc.on{box-shadow:inset 0 0 0 1.5px var(--accent);background:var(--accent-dim)}
+.sc-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;line-height:1}
+.sc-body{min-width:0}
+.sc .n{font-size:24px;font-weight:700;font-family:var(--mono);line-height:1.1}
+.sc .l{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.sc-ah-broken .sc-icon{background:rgba(232,84,84,.1);color:var(--ah-broken)}
+.sc-ah-broken .n{color:var(--ah-broken)}
+.sc-ah-degraded .sc-icon{background:rgba(216,136,40,.1);color:var(--ah-degraded)}
+.sc-ah-degraded .n{color:var(--ah-degraded)}
+.sc-ah-healthy .sc-icon{background:rgba(52,201,142,.08);color:var(--ah-healthy)}
+.sc-ah-healthy .n{color:var(--ah-healthy)}
+
+/* ── Tooltip ── */
+[data-tip]{position:relative}
+[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--surface3);color:var(--text);font-size:11px;font-family:var(--sans);font-weight:400;padding:8px 12px;border-radius:var(--radius-sm);max-width:300px;white-space:normal;z-index:300;border:1px solid var(--border-strong);pointer-events:none;text-transform:none;letter-spacing:0;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+
+/* ── Health bar ── */
+.hbar-wrap{padding:10px 0 0}
+.hbar-outer{display:flex;height:24px;border-radius:6px;overflow:hidden;background:var(--surface2)}
+.hbar-seg{display:flex;align-items:center;justify-content:center;cursor:pointer;transition:filter .12s;min-width:0;overflow:hidden;padding:0 8px}
+.hbar-seg:hover{filter:brightness(1.25)}
+.hbar-seg.on{outline:2px solid var(--accent);outline-offset:-2px;z-index:1}
+.hbar-seg span{font-size:10px;font-weight:600;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbar-seg.broken{background:rgba(232,84,84,.5);color:#fff}
+.hbar-seg.degraded{background:rgba(216,136,40,.4);color:#fff}
+.hbar-seg.healthy{background:rgba(52,201,142,.25);color:var(--pass)}
+.hbar-note{font-size:11px;color:var(--dim);margin-top:6px}
+
+/* ── Section titles ── */
+.section-wrap{padding:28px 32px 0}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.section-title{font-size:13px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px}
+.section-meta{font-size:11px;color:var(--muted);font-family:var(--mono)}
+
+/* ── Worst apps ── */
+.worst-wrap{padding:0 32px}
+.worst-header{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:4px 0}
+.worst-header h3{font-size:13px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px}
+.worst-header .wt{font-size:10px;color:var(--muted);transition:.2s}
+.worst-header:hover .wt{color:var(--dim)}
+.worst-body{overflow:hidden}
+.worst-body.collapsed{max-height:0 !important;overflow:hidden}
+.worst-list{display:flex;flex-direction:column;gap:2px;padding:8px 0}
+.wa{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius);cursor:pointer;transition:.12s;font-size:12px}
+.wa:hover{background:var(--surface2)}
+.wa-rank{font-size:11px;font-family:var(--mono);font-weight:600;color:var(--muted);width:22px;text-align:right;flex-shrink:0}
+.wa-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-secondary);font-weight:500}
+.wa-badge{flex-shrink:0}
+.wa-counts{font-size:10px;font-family:var(--mono);color:var(--muted);flex-shrink:0;display:flex;gap:8px}
+.wa-counts .wf{color:var(--fail)} .wa-counts .ww{color:var(--warn)}
+.wa-cat{font-size:10px;color:var(--muted);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.wa-action{font-size:10px;color:var(--accent);font-weight:600;opacity:0;transition:.15s;flex-shrink:0;padding:2px 8px;border-radius:4px}
+.wa:hover .wa-action{opacity:1;background:var(--accent-dim)}
+.worst-more{font-size:11px;color:var(--muted);padding:6px 12px}
+
+/* ── Issue bars ── */
+.ib-wrap{padding:0 32px}
+.ib-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.ib-head h2{font-size:13px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px}
+.ib-toggle{padding:5px 12px;font-size:11px;font-family:var(--sans);font-weight:500;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--dim);cursor:pointer;transition:.12s}
+.ib-toggle:hover{background:var(--surface2);color:var(--text)}
+.ib-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.ib-group{background:var(--surface);border-radius:var(--radius);padding:12px 14px}
+.ib-group-label{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.ib-group-label.fatal{color:var(--is-fatal)}
+.ib-group-label.warn{color:var(--is-warn)}
+.ib-group-label.info{color:var(--is-info)}
+.ib-list{display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto}
+.ib-detail{margin-top:12px}
+.ib-detail.hidden{display:none}
+.ib{display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:var(--radius-sm);cursor:pointer;transition:.1s}
+.ib:hover{background:var(--surface2)}
+.ib.on{background:var(--surface2)}
+.ib .il{flex:0 0 260px;font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.ib .il .sev-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.ib .it{flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.ib .if{height:100%;border-radius:3px;transition:width .3s}
+.ib .ic{flex:0 0 40px;text-align:right;font-size:12px;font-family:var(--mono);font-weight:500}
+
+/* ── Divider ── */
+.section-divider{height:1px;background:var(--border);margin:24px 32px 0}
+
+/* ── Filters ── */
+.filters-wrap{padding:24px 32px 0}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filter-group{display:flex;align-items:center;gap:6px}
+.filter-label{font-size:9px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding-right:2px;white-space:nowrap}
+.sb{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-family:var(--sans);color:var(--text);outline:none;transition:.15s}
+.sb:focus{border-color:var(--accent)}
+.sb::placeholder{color:var(--muted)}
+.sb.search-input{min-width:180px;max-width:280px;flex:1}
+select.sb{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%238892aa' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer;min-width:160px;max-width:220px}
+select.sb option{background:var(--surface);color:var(--text)}
+.fg{display:flex;gap:2px;background:var(--surface);border-radius:var(--radius-sm);padding:2px;align-items:center}
+.fb{padding:5px 11px;font-size:11px;font-family:var(--sans);font-weight:500;border:none;border-radius:4px;background:transparent;color:var(--dim);cursor:pointer;transition:.12s;white-space:nowrap}
+.fb:hover{color:var(--text)}
+.fb.on{background:var(--accent);color:#fff}
+.ft{padding:6px 12px;font-size:11px;font-family:var(--sans);font-weight:500;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--dim);cursor:pointer;transition:.12s;white-space:nowrap}
+.ft:hover{background:var(--surface2);color:var(--text)}
+.ft.on{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.filter-sep{width:1px;height:24px;background:var(--border);flex-shrink:0;margin:0 4px}
+
+/* ── Table ── */
+.tw{padding:0 32px 60px;overflow:hidden;display:flex;flex-direction:column}
+.rc{font-size:11px;color:var(--muted);margin:16px 0 10px;font-family:var(--mono);flex-shrink:0}
+.table-scroll{flex:1;overflow:auto;max-height:calc(100vh - 120px);border:1px solid var(--border);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead{position:sticky;top:0;z-index:50}
+thead th{text-align:left;padding:9px 12px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);background:var(--surface);border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none}
+thead th:hover{color:var(--dim)}
+thead th .sa{margin-left:3px;opacity:.3;font-size:9px}
+thead th.sd .sa{opacity:1;color:var(--accent)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .08s}
+tbody tr:nth-child(4n+1){background:rgba(255,255,255,.008)}
+tbody tr:hover{background:var(--surface)}
+tbody tr.expanded{background:var(--surface)}
+td{padding:9px 12px;vertical-align:top}
+td.mn{font-family:var(--mono);font-size:11px;word-break:break-all;max-width:240px}
+td.an{font-weight:500;max-width:220px;word-break:break-word;color:var(--text-secondary)}
+td.ic{font-size:11px;color:var(--dim);line-height:1.6;max-width:400px}
+td.st{font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+td.cc{max-width:220px}
+
+.issue-line{display:block;margin-bottom:2px}
+.issue-trunc{max-height:60px;overflow:hidden;position:relative}
+.issue-trunc.open{max-height:none}
+.expand-btn{color:var(--accent);cursor:pointer;font-size:10px;font-weight:600;margin-top:2px;display:inline-block;border:none;background:none;font-family:var(--sans);padding:0}
+.expand-btn:hover{text-decoration:underline}
+
+/* ── Badges ── */
+.vd{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;font-family:var(--mono);white-space:nowrap}
+.vd.pass{background:rgba(52,201,142,.07);color:var(--pass);border:1px solid rgba(52,201,142,.16)}
+.vd.warning{background:rgba(232,168,32,.07);color:var(--warn);border:1px solid rgba(232,168,32,.16)}
+.vd.fail{background:rgba(232,84,84,.07);color:var(--fail);border:1px solid rgba(232,84,84,.16)}
+.vd.error{background:rgba(152,120,224,.07);color:var(--err);border:1px solid rgba(152,120,224,.16)}
+.dt{width:5px;height:5px;border-radius:50%;display:inline-block}
+.vd.pass .dt{background:var(--pass)} .vd.warning .dt{background:var(--warn)} .vd.fail .dt{background:var(--fail)} .vd.error .dt{background:var(--err)}
+
+.sv{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;font-family:var(--mono);white-space:nowrap}
+.sv.fatal{background:rgba(208,64,64,.08);color:var(--is-fatal);border:1px solid rgba(208,64,64,.18)}
+.sv.sev-warning{background:rgba(232,168,32,.07);color:var(--is-warn);border:1px solid rgba(232,168,32,.16)}
+.sv.info{background:rgba(104,120,160,.1);color:var(--is-info);border:1px solid rgba(104,120,160,.18)}
+.sv.clean{background:rgba(48,184,168,.08);color:var(--is-clean);border:1px solid rgba(48,184,168,.16)}
+.sv .dt{width:5px;height:5px;border-radius:50%;display:inline-block}
+.sv.fatal .dt{background:var(--is-fatal)} .sv.sev-warning .dt{background:var(--is-warn)} .sv.info .dt{background:var(--is-info)} .sv.clean .dt{background:var(--is-clean)}
+
+/* ── Category pills ── */
+.cat-wrap{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+.cat-pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:500;font-family:var(--mono);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;cursor:default}
+.cat-pill.cat-fatal{background:rgba(208,64,64,.1);color:var(--is-fatal);border:1px solid rgba(208,64,64,.15)}
+.cat-pill.cat-warn{background:rgba(232,168,32,.1);color:var(--warn);border:1px solid rgba(232,168,32,.15)}
+.cat-pill.cat-info{background:rgba(104,120,160,.1);color:var(--is-info);border:1px solid rgba(104,120,160,.15)}
+.cat-pill.cat-more{background:var(--surface2);color:var(--dim);border:1px solid var(--border);cursor:pointer}
+.cat-pill.cat-more:hover{background:var(--surface3);color:var(--text)}
+
+/* ── Row detail panel ── */
+tr.detail-row{border-bottom:1px solid var(--border)}
+tr.detail-row td{padding:4px 12px 10px}
+.detail-panel{background:var(--surface);border-left:3px solid var(--border);padding:16px 18px;border-radius:var(--radius-sm);font-size:12px;display:flex;flex-direction:column;gap:14px}
+.detail-panel.sev-fatal{border-left-color:var(--is-fatal)}
+.detail-panel.sev-warning{border-left-color:var(--warn)}
+.detail-panel.sev-info{border-left-color:var(--is-info)}
+.detail-panel.sev-clean{border-left-color:var(--is-clean)}
+.detail-section{background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px}
+.detail-section-label{font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.detail-panel h4{display:none}
+.detail-recs{list-style:none;padding:0;display:flex;flex-direction:column;gap:4px}
+.detail-recs li{padding:4px 8px;color:var(--text);font-size:11px;display:flex;align-items:flex-start;gap:8px;background:var(--surface);border-radius:4px}
+.detail-recs li::before{content:">";color:var(--accent);font-family:var(--mono);font-weight:700;flex-shrink:0;margin-top:1px}
+.detail-raw{font-size:11px;color:var(--dim);line-height:1.6}
+.detail-issue-item{padding:8px 10px;background:var(--surface);border-radius:var(--radius-sm);border-left:3px solid var(--border)}
+.detail-issue-item+.detail-issue-item{margin-top:6px}
+.detail-issue-item.di-fatal{border-left-color:var(--is-fatal)}
+.detail-issue-item.di-warn{border-left-color:var(--is-warn)}
+.detail-issue-item.di-info{border-left-color:var(--is-info)}
+.detail-issue-text{font-size:11px;color:var(--text-secondary);font-family:var(--mono);margin-bottom:4px;word-break:break-word}
+.detail-issue-explain{font-size:11px;color:var(--dim);line-height:1.5}
+.detail-issue-explain.sev-fatal{color:color-mix(in srgb,var(--is-fatal) 70%,var(--dim))}
+.detail-issue-explain.sev-warn{color:color-mix(in srgb,var(--is-warn) 50%,var(--dim))}
+.detail-issue-explain.sev-info{color:var(--dim)}
+.detail-meta{font-size:11px;color:var(--muted);font-family:var(--mono);display:flex;gap:6px;flex-wrap:wrap}
+.detail-meta span{padding:3px 8px;background:var(--surface);border-radius:4px}
+.detail-cats{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.row-expand-btn{color:var(--muted);cursor:pointer;font-size:14px;border:none;background:none;padding:2px 4px;transition:.12s;font-family:var(--mono);line-height:1}
+.row-expand-btn:hover{color:var(--accent)}
+.row-expand-btn.open{color:var(--accent)}
+.dep{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--surface2);color:var(--muted);font-weight:500}
+.fatal-yes{color:var(--fail);font-weight:600;font-size:11px}
+.status-issue{color:var(--warn);font-size:11px}
+.es{padding:48px 20px;text-align:center;color:var(--muted);font-size:14px}
+
+/* ── Help modal ── */
+.help-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.help-overlay.open{display:flex}
+.help-modal{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-lg);padding:28px;max-width:680px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+.help-modal h2{font-size:14px;font-weight:700;letter-spacing:-.2px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.help-close{background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:var(--radius-sm)}
+.help-close:hover{color:var(--text);background:var(--surface2)}
+.help-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.help-card h3{font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.help-card p{font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:8px}
+.help-card .def{display:flex;gap:8px;margin-bottom:6px;font-size:12px;line-height:1.5}
+.help-card .def-badge{flex-shrink:0;margin-top:2px}
+.help-card .def-text{color:var(--dim)}
+.help-note{font-size:11px;color:var(--muted);border-top:1px solid var(--border);margin-top:16px;padding-top:14px;line-height:1.5}
+
+/* ── Responsive ── */
+@media(max-width:900px){
+  .stats-row{grid-template-columns:1fr}
+  .ss-grid{grid-template-columns:repeat(3,1fr)}
+  .ib-summary{grid-template-columns:1fr}
+}
+@media(max-width:768px){
+  .hero,.stats-row,.filters-wrap,.tw,.section-wrap,.worst-wrap,.ib-wrap,.section-divider,.bar{padding-left:16px;padding-right:16px}
+  .section-divider{margin-left:16px;margin-right:16px}
+  .ss-grid{grid-template-columns:repeat(2,1fr)}
+  .hero-top{flex-direction:column}
+  .ib .il{flex:0 0 140px}
+  .hbar-outer{height:auto;flex-direction:column}
+  .hbar-seg{height:24px;width:100% !important}
+  .filter-sep{display:none}
+  .filters{gap:6px}
+  .sb.search-input{min-width:100%;max-width:100%}
+  .table-scroll{max-height:calc(100vh - 100px)}
+}
+</style>
+</head>
+<body>
+
+<div id="upload">
+  <h1>Veracode Scan Health Viewer</h1>
+  <p>Drop your scan_health_report.csv to view module health</p>
+  <div id="drop">
+    <div class="ic">&#128196;</div>
+    <div class="lb">Drop CSV here or click to browse</div>
+    <div class="ht">Supports comma and tab separated files</div>
+  </div>
+  <input type="file" id="fi" accept=".csv,.tsv,.txt">
+</div>
+
+<div id="report" class="hidden">
+  <!-- Sticky bar -->
+  <div class="bar">
+    <div class="bar-left">
+      <h1>Scan Health Report</h1>
+      <span class="m" id="meta"></span>
+    </div>
+    <div class="bar-actions">
+      <button id="help-btn" class="hidden" title="How is this calculated?">? Help</button>
+      <button id="copy-btn" class="hidden">Copy summary</button>
+      <button id="reset-btn">New file</button>
+    </div>
+  </div>
+
+  <!-- Hero / command center -->
+  <div class="hero" id="hero">
+    <div class="hero-top">
+      <div class="hero-text">
+        <h2 id="hero-title">Portfolio Health</h2>
+        <div class="hero-app" id="app-name"></div>
+        <div class="hero-sub" id="hero-sub"></div>
+      </div>
+      <!-- Action buttons removed; cards and filters serve the same purpose -->
+    </div>
+  </div>
+
+  <!-- Stats cards -->
+  <div class="stats-row" id="stats-area"></div>
+
+  <!-- Worst apps -->
+  <div class="section-divider hidden" id="worst-divider"></div>
+  <div class="section-wrap hidden" id="worst-section">
+    <div class="section-head">
+      <span class="section-title">Worst Applications</span>
+      <span class="section-meta" id="worst-meta"></span>
+    </div>
+  </div>
+  <div class="worst-wrap hidden" id="worst-wrap">
+    <div class="worst-header" id="worst-header">
+      <h3 id="worst-toggle-label">Showing top issues</h3>
+      <span class="wt" id="worst-toggle">&#9660;</span>
+    </div>
+    <div class="worst-body" id="worst-body">
+      <div class="worst-list" id="worst-list"></div>
+    </div>
+  </div>
+
+  <!-- Issue categories -->
+  <div class="section-divider hidden" id="ib-divider"></div>
+  <div class="ib-wrap hidden" id="ib-wrap">
+    <div class="ib-head">
+      <h2>Issue Categories</h2>
+      <button class="ib-toggle" id="ib-toggle">Show detailed breakdown</button>
+    </div>
+    <div class="ib-summary" id="ib-summary"></div>
+    <div class="ib-list ib-detail hidden" id="ib-list"></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="section-divider"></div>
+  <div class="filters-wrap">
+    <div class="filters">
+      <div class="filter-group">
+        <span class="filter-label">Find</span>
+        <input type="text" class="sb search-input" id="search" placeholder="Search app, module, issue...">
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label">Scope</span>
+        <select class="sb" id="app-filter"><option value="">All applications</option></select>
+        <select class="sb" id="scan-filter"><option value="">All scans</option></select>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label">Health</span>
+        <div class="fg" id="hf"></div>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label">Refine</span>
+        <button class="ft" id="dep-btn">Hide dependencies</button>
+        <button class="ft" id="iss-btn">Issues only</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="tw">
+    <div class="rc" id="rc"></div>
+    <div class="table-scroll" id="table-scroll">
+      <table><thead id="th"></thead><tbody id="tb"></tbody></table>
+    </div>
+    <div class="es hidden" id="es">No modules match filters.</div>
+  </div>
+</div>
+
+<!-- Help modal -->
+<div class="help-overlay" id="help-overlay">
+  <div class="help-modal">
+    <h2>Health Scoring <button class="help-close" id="help-close">&times;</button></h2>
+    <div class="help-grid">
+      <div class="help-card">
+        <h3>Application Health</h3>
+        <p>Portfolio overview rolls module findings up into one outcome per application.</p>
+        <div class="def"><span class="def-badge"><span class="vd fail"><span class="dt"></span>BROKEN</span></span><span class="def-text">At least one first-party module has blocking issues.</span></div>
+        <div class="def"><span class="def-badge"><span class="vd warning"><span class="dt"></span>DEGRADED</span></span><span class="def-text">No blocking first-party issues, but scan quality is reduced.</span></div>
+        <div class="def"><span class="def-badge"><span class="vd pass"><span class="dt"></span>HEALTHY</span></span><span class="def-text">Modules are clean or only informational.</span></div>
+      </div>
+      <div class="help-card">
+        <h3>Module Health</h3>
+        <p>Module health merges verdict and issue severity into a single status.</p>
+        <div class="def"><span class="def-badge"><span class="vd fail"><span class="dt"></span>BROKEN</span></span><span class="def-text">FAIL, ERROR, or FATAL findings that need action first.</span></div>
+        <div class="def"><span class="def-badge"><span class="vd warning"><span class="dt"></span>DEGRADED</span></span><span class="def-text">Warnings that allow scanning but reduce confidence or coverage.</span></div>
+        <div class="def"><span class="def-badge"><span class="vd pass"><span class="dt"></span>HEALTHY</span></span><span class="def-text">PASS, CLEAN, or informational-only findings.</span></div>
+      </div>
+    </div>
+    <div class="help-note">Use the portfolio overview to see overall app health, worst apps to spot where to focus, issue categories to understand what is wrong, and row details for concrete packaging recommendations.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var rows=[], sortCol=null, sortAsc=true, moduleHealthFilter='all', hideDeps=false, issOnly=false, issFilter=null, searchVal='', appFilter='', scanFilter='', healthFilter='', issueBreakdownOpen=false;
+  var hasNewCols=false, openDetailTr=null, openDetailBtn=null;
+  var cache={appHealthMap:{},healthCounts:{BROKEN:0,DEGRADED:0,HEALTHY:0},moduleHealthCounts:{BROKEN:0,DEGRADED:0,HEALTHY:0},totalApps:0,verdictCounts:{PASS:0,WARNING:0,FAIL:0,ERROR:0},severityCounts:{FATAL:0,WARNING:0,INFO:0,CLEAN:0},appsWithIssues:0,issueCounts:{},issueSevMap:{},worstApps:[],totalBadApps:0};
+
+  var FATAL_CATEGORIES={'fatal prescan error':1,'fatal support issue':1,'pdb not loadable':1,'missing pdb':1,'unsupported architecture':1,'unsupported platform':1,'unsupported compiler':1,'corrupt header':1,'required file missing':1};
+  var INFO_CATEGORIES={'no supporting files or pdb (dependency, non-.net)':1,'support issue (non-fatal)':1,'other file issue':1};
+  function catSeverity(cat){var lo=cat.toLowerCase();if(FATAL_CATEGORIES[lo])return'fatal';if(INFO_CATEGORIES[lo])return'info';return'warn'}
+  function fmtNum(n){return n.toLocaleString()}
+  function pct(n,t){return t?Math.round(n/t*100):0}
+  function getModuleHealth(r){var sev=(r['Issue Severity']||'').toUpperCase(), v=(r['Verdict']||'').toUpperCase(); if(v==='FAIL'||v==='ERROR'||sev==='FATAL')return 'BROKEN'; if(v==='WARNING'||sev==='WARNING')return 'DEGRADED'; return 'HEALTHY'}
+  function val(r,k){return ((r[k]||'')+'').trim()}
+  function scanLabel(r){var name=val(r,'Scan Name')||'Unnamed scan';var date=val(r,'Scan Date');var build=val(r,'Build ID');var label=date?name+' - '+date:name;return build?label+' / Build '+build:label}
+  function scanKey(r){var build=val(r,'Build ID');if(build)return build;return (val(r,'Scan Context')+'||'+val(r,'Scan Name')+'||'+val(r,'Scan Date'))}
+  function moduleIdentity(r){return val(r,'Module ID')||val(r,'App File ID')||(val(r,'Module')+'||'+val(r,'Platform')+'||'+val(r,'Checksum')+'||'+val(r,'Is Dependency'))}
+  function moduleKey(r){return (val(r,'Application')+'||'+scanKey(r)+'||'+moduleIdentity(r))}
+  function healthRank(v){return v==='BROKEN'?3:v==='DEGRADED'?2:1}
+  function pickWorse(a,b){return healthRank(a)>=healthRank(b)?a:b}
+  function uniqJoin(parts,sep){var seen={},out=[];(parts||[]).forEach(function(part){(part||'').split(sep).forEach(function(x){x=(x||'').trim();if(x&&!seen[x]){seen[x]=1;out.push(x)}})});return out.join(sep+' ')}
+  function dedupeRows(list){var map={};list.forEach(function(r){var k=moduleKey(r);if(!k||k.replace(/\|/g,'')===''){return}if(!map[k]){map[k]=Object.assign({},r);return}var cur=map[k];if(healthRank(getModuleHealth(r))>healthRank(getModuleHealth(cur))){['Verdict','Issue Severity','Status','Scan State'].forEach(function(f){if(r[f])cur[f]=r[f]})}if((r['Packaging Recommendation']||'').length>(cur['Packaging Recommendation']||'').length)cur['Packaging Recommendation']=r['Packaging Recommendation'];cur['Issue Categories']=uniqJoin([cur['Issue Categories']||'',r['Issue Categories']||''],';');cur['_issues']=uniqJoin([cur['_issues']||'',r['_issues']||''],';');if(r['Error']&&(!cur['Error']||r['Error'].length>cur['Error'].length))cur['Error']=r['Error'];if(r['Issues']&&(!cur['Issues']||r['Issues'].length>cur['Issues'].length))cur['Issues']=r['Issues'];['Scan Date','Scan Name','Build ID','Module ID','App File ID','Checksum','Platform','Size','Is Dependency'].forEach(function(f){if(!cur[f]&&r[f])cur[f]=r[f]});});return Object.keys(map).map(function(k){return map[k]})}
+
+  var baseCols=[{k:'_expand',l:'',c:'',nosort:true,w:'28px'},{k:'Module',l:'Module',c:'mn'},{k:'Health',l:'Health'},{k:'Scan Name',l:'Scan'},{k:'Scan Date',l:'Date'},{k:'Is Dependency',l:'Dep'},{k:'Issue Categories',l:'Categories',c:'cc'},{k:'Status',l:'Status',c:'st'}];
+  var newCols=[];
+  var tailCols=[{k:'_issues',l:'Issues',c:'ic'}];
+  var cols=[];
+  function buildCols(){cols=baseCols.slice();if(hasNewCols)cols=cols.concat(newCols);cols=cols.concat(tailCols)}
+
+  function parseFile(text){
+    text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');var lines=text.split('\n');
+    while(lines.length&&!lines[lines.length-1].trim())lines.pop();
+    if(lines.length<2)return[];
+    var hdrLine=lines[0],tabCount=(hdrLine.match(/\t/g)||[]).length,commaCount=(hdrLine.match(/,/g)||[]).length,delim=tabCount>commaCount?'\t':',';
+    var hdr=splitLine(hdrLine,delim),out=[];
+    for(var i=1;i<lines.length;i++){var ln=lines[i];if(!ln.trim())continue;var v=splitLine(ln,delim),hasData=false;for(var x=0;x<v.length;x++){if(v[x].trim()){hasData=true;break}}if(!hasData)continue;
+      var r={};for(var j=0;j<hdr.length;j++)r[hdr[j].trim()]=(v[j]||'').trim();var parts=[];if(r['Issues'])parts.push(r['Issues']);if(r['Error'])parts.push(r['Error']);r['_issues']=parts.join('; ');out.push(r)}
+    return out;
+  }
+  function splitLine(s,delim){if(delim==='\t')return s.split('\t');var res=[],cur='',q=false;for(var i=0;i<s.length;i++){var c=s[i];if(q){if(c==='"'&&s[i+1]==='"'){cur+='"';i++}else if(c==='"'){q=false}else{cur+=c}}else{if(c==='"'){q=true}else if(c===','){res.push(cur);cur=''}else{cur+=c}}}res.push(cur);return res}
+  function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+  function show(id){document.getElementById(id).classList.remove('hidden')}
+  function hide(id){document.getElementById(id).classList.add('hidden')}
+
+  function computeCache(){
+    var ahm={},apps={},vc={PASS:0,WARNING:0,FAIL:0,ERROR:0},sc={FATAL:0,WARNING:0,INFO:0,CLEAN:0},mc={BROKEN:0,DEGRADED:0,HEALTHY:0},badApps={},issueCounts={},issueSevTally={};
+    rows.forEach(function(r){
+      var app=r['Application']||'';apps[app]=true;var v=r['Verdict']||'';if(vc.hasOwnProperty(v))vc[v]++; var mh=getModuleHealth(r); if(mc.hasOwnProperty(mh))mc[mh]++;
+      if(v==='FAIL'||v==='WARNING')badApps[app]=true;
+      if(hasNewCols){
+        var sev=(r['Issue Severity']||'').toUpperCase();
+        if(r['Module']&&sc.hasOwnProperty(sev))sc[sev]++;
+        if(!ahm[app])ahm[app]={name:app,modules:0,fatals:0,warns:0,topCat:'',cats:{}};
+        var h=ahm[app];if(r['Module'])h.modules++;
+        var isDep=r['Is Dependency']==='True';
+        if(sev==='FATAL'&&!isDep)h.fatals++;if(sev==='WARNING')h.warns++;
+        var catStr=r['Issue Categories']||'';
+        if(catStr){var seen={};catStr.split(';').forEach(function(c){c=c.trim();if(!c)return;if(!seen[c]){seen[c]=true;h.cats[c]=(h.cats[c]||0)+1;issueCounts[c]=(issueCounts[c]||0)+1}
+            if(!issueSevTally[c])issueSevTally[c]={fatal:0,warn:0,info:0};
+            if(sev==='FATAL')issueSevTally[c].fatal++;else if(sev==='WARNING')issueSevTally[c].warn++;else issueSevTally[c].info++})}
+      }
+    });
+    var hc={BROKEN:0,DEGRADED:0,HEALTHY:0};
+    if(hasNewCols){Object.keys(ahm).forEach(function(k){var h=ahm[k];if(h.fatals>0)h.verdict='BROKEN';else if(h.warns>0)h.verdict='DEGRADED';else h.verdict='HEALTHY';hc[h.verdict]++;var topC='',topN=0;Object.keys(h.cats).forEach(function(c){if(h.cats[c]>topN){topN=h.cats[c];topC=c}});h.topCat=topC})}
+    var issueSevMap={};
+    if(hasNewCols){Object.keys(issueCounts).forEach(function(c){var t=issueSevTally[c]||{fatal:0,warn:0,info:0};if(t.fatal>=t.warn&&t.fatal>=t.info)issueSevMap[c]='fatal';else if(t.warn>=t.info)issueSevMap[c]='warn';else issueSevMap[c]='info'})}
+    var worstApps=[];
+    if(hasNewCols){worstApps=Object.keys(ahm).filter(function(k){return ahm[k].verdict!=='HEALTHY'}).sort(function(a,b){var ha=ahm[a],hb=ahm[b];if(hb.fatals!==ha.fatals)return hb.fatals-ha.fatals;return hb.warns-ha.warns}).slice(0,20).map(function(k){return ahm[k]})}
+    if(!hasNewCols){rows.forEach(function(r){var iss=r['_issues']||'';if(!iss)return;var seen={};iss.split(';').forEach(function(p){var label=normalizeIssue(p);if(label&&!seen[label]){seen[label]=true;issueCounts[label]=(issueCounts[label]||0)+1;if(!issueSevMap[label])issueSevMap[label]=legacyBarSeverity(label)}})})}
+    cache={appHealthMap:ahm,healthCounts:hc,moduleHealthCounts:mc,totalApps:Object.keys(apps).length,verdictCounts:vc,severityCounts:sc,appsWithIssues:Object.keys(badApps).length,issueCounts:issueCounts,issueSevMap:issueSevMap,worstApps:worstApps,totalBadApps:hasNewCols?Object.keys(ahm).filter(function(k){return ahm[k].verdict!=='HEALTHY'}).length:0};
+  }
+
+  function load(text){
+    rows=parseFile(text);if(!rows.length){alert('No data rows found.');return}
+    if(!rows[0].hasOwnProperty('Application')){alert('Missing "Application" column.');return}
+    var rawCount=rows.length;
+    rows=dedupeRows(rows);
+    hasNewCols=rows[0].hasOwnProperty('Issue Severity');
+    buildCols();hide('upload');show('report');
+    document.getElementById('meta').textContent=fmtNum(rows.length)+' modules | '+fmtNum(new Set(rows.map(function(r){return r['Application']||''})).size)+' apps'+(rawCount!==rows.length?' | deduped from '+fmtNum(rawCount)+' rows':'');
+    computeCache();buildHero();buildStats();buildWorstApps();buildIssueBars();buildHealthFilter();buildAppFilter();buildScanFilter();buildHead();
+    if(hasNewCols){show('copy-btn');show('help-btn')}
+    render();
+  }
+
+  function buildHero(){
+    var hc=cache.healthCounts, mc=cache.moduleHealthCounts, total=cache.totalApps;
+    var sub=document.getElementById('hero-sub');
+    if(hasNewCols){
+      var issueApps=hc.BROKEN+hc.DEGRADED;
+      if(issueApps>0){
+        sub.innerHTML='<strong>'+fmtNum(issueApps)+' of '+fmtNum(total)+'</strong> applications need packaging attention. '+fmtNum(hc.BROKEN)+' broken, '+fmtNum(hc.DEGRADED)+' degraded.';
+      } else {
+        sub.innerHTML='All <strong>'+fmtNum(total)+'</strong> applications are packaging healthy.';
+      }
+    } else {
+      var issApps=cache.appsWithIssues;
+      if(issApps>0){
+        sub.innerHTML='<strong>'+fmtNum(issApps)+'</strong> applications have modules with issues across <strong>'+fmtNum(total)+'</strong> total apps.';
+      } else {
+        sub.innerHTML='<strong>'+fmtNum(total)+'</strong> applications scanned. '+fmtNum(rows.length)+' modules total.';
+      }
+    }
+  }
+
+  function buildStats(){
+    var el=document.getElementById('stats-area');el.innerHTML='';
+    var hc=cache.healthCounts, mc=cache.moduleHealthCounts;
+
+    if(hasNewCols){
+      var secA=makeSection('Portfolio Overview','Overall health by application: how healthy is the portfolio?',fmtNum(cache.totalApps)+' applications');
+      var gridA=secA.querySelector('.ss-grid');
+      [
+      {l:'Broken',v:hc.BROKEN,cls:'sc-ah-broken',icon:'&#10005;',f:'health:BROKEN',tip:'Applications with at least one first-party module that has fatal errors'},
+      {l:'Degraded',v:hc.DEGRADED,cls:'sc-ah-degraded',icon:'&#9888;',f:'health:DEGRADED',tip:'Applications with warnings but no fatal first-party module issues'},
+      {l:'Healthy',v:hc.HEALTHY,cls:'sc-ah-healthy',icon:'&#10003;',f:'health:HEALTHY',tip:'Applications where all modules are clean or informational only'}
+    ].forEach(function(cd){addCard(gridA,cd)});
+      var hbarWrap=document.createElement('div');hbarWrap.className='hbar-wrap';
+      var hbarOuter=document.createElement('div');hbarOuter.className='hbar-outer';hbarOuter.id='hbar';
+      hbarWrap.appendChild(hbarOuter);
+      var hbarNote=document.createElement('div');hbarNote.className='hbar-note';hbarNote.id='hbar-note';
+      hbarWrap.appendChild(hbarNote);
+      secA.appendChild(hbarWrap);
+      el.appendChild(secA);
+      buildHealthBar();
+    }
+
+    var secB=makeSection('Module Summary','Merged module health that combines verdict and issue severity.',fmtNum(rows.length)+' modules');
+    var gridB=secB.querySelector('.ss-grid');
+    [
+    {l:'Broken',v:mc.BROKEN,cls:'sc-ah-broken',icon:'&#10005;',f:'module:BROKEN',tip:'FAIL, ERROR, or FATAL findings that need action first'},
+    {l:'Degraded',v:mc.DEGRADED,cls:'sc-ah-degraded',icon:'&#9888;',f:'module:DEGRADED',tip:'Warnings that reduce scan quality but still allow scanning'},
+    {l:'Healthy',v:mc.HEALTHY,cls:'sc-ah-healthy',icon:'&#10003;',f:'module:HEALTHY',tip:'PASS, CLEAN, or informational-only modules'}
+  ].forEach(function(cd){addCard(gridB,cd)});
+    el.appendChild(secB);
+  }
+
+  function makeSection(label,tipText,countText){
+    var sec=document.createElement('div');sec.className='stats-section';
+    var hdr=document.createElement('div');hdr.className='ss-header';
+    hdr.innerHTML='<span class="ss-label">'+label+'</span>'+(countText?'<span class="ss-count">('+countText+')</span>':'')+'<span class="ss-tip" data-tip="'+esc(tipText)+'">?</span>';
+    sec.appendChild(hdr);
+    var grid=document.createElement('div');grid.className='ss-grid';
+    sec.appendChild(grid);
+    return sec;
+  }
+
+  function addCard(grid,cd){
+    var d=document.createElement('div');d.className='sc '+cd.cls;
+    if(cd.tip)d.setAttribute('data-tip',cd.tip);
+    var iconHtml=cd.icon?'<div class="sc-icon">'+cd.icon+'</div>':'';
+    d.innerHTML=iconHtml+'<div class="sc-body"><div class="n">'+fmtNum(cd.v)+'</div><div class="l">'+cd.l+'</div></div>';
+    d.addEventListener('click',function(){
+      if(cd.f.indexOf('health:')===0){var hv=cd.f.split(':')[1];healthFilter=healthFilter===hv?'':hv;scanFilter='';document.getElementById('scan-filter').value='';syncAll();render()}
+      else if(cd.f.indexOf('module:')===0){var mv=cd.f.split(':')[1];moduleHealthFilter=moduleHealthFilter===mv?'all':mv;syncAll();render()}
+      else{render()}
+    });
+    grid.appendChild(d);
+  }
+
+  function syncAll(){syncHF();syncHealthBar();syncCardHighlights()}
+  function syncCardHighlights(){
+    document.querySelectorAll('.sc').forEach(function(el){
+      var cls=el.className;
+      var isOn=false;
+      if(healthFilter&&cls.indexOf('sc-ah-')!==-1){
+        if(healthFilter==='BROKEN'&&cls.indexOf('sc-ah-broken')!==-1)isOn=true;
+        if(healthFilter==='DEGRADED'&&cls.indexOf('sc-ah-degraded')!==-1)isOn=true;
+        if(healthFilter==='HEALTHY'&&cls.indexOf('sc-ah-healthy')!==-1)isOn=true;
+      }
+      if(moduleHealthFilter!=='all'&&cls.indexOf('sc-ah-')!==-1&&el.closest('.stats-section')&&el.closest('.stats-section').querySelector('.ss-label').textContent==='Module Summary'){
+        if(moduleHealthFilter==='BROKEN'&&cls.indexOf('sc-ah-broken')!==-1)isOn=true;
+        if(moduleHealthFilter==='DEGRADED'&&cls.indexOf('sc-ah-degraded')!==-1)isOn=true;
+        if(moduleHealthFilter==='HEALTHY'&&cls.indexOf('sc-ah-healthy')!==-1)isOn=true;
+      }
+      el.classList.toggle('on',isOn);
+    });
+  }
+
+  function buildHealthBar(){
+    var bar=document.getElementById('hbar');if(!bar)return;bar.innerHTML='';
+    var hc=cache.healthCounts,total=cache.totalApps;
+    [{k:'BROKEN',cls:'broken',count:hc.BROKEN},{k:'DEGRADED',cls:'degraded',count:hc.DEGRADED},{k:'HEALTHY',cls:'healthy',count:hc.HEALTHY}].forEach(function(s){
+      if(!s.count)return;var w=Math.max(s.count/total*100,4);
+      var seg=document.createElement('div');seg.className='hbar-seg '+s.cls;seg.style.width=w+'%';
+      seg.setAttribute('data-tip',s.k+': '+(s.k==='BROKEN'?'At least one first-party module has fatal errors':s.k==='DEGRADED'?'Warnings present but no fatal first-party issues':'All modules clean or info-only'));
+      seg.innerHTML='<span>'+fmtNum(s.count)+' '+s.k.charAt(0)+s.k.slice(1).toLowerCase()+' ('+pct(s.count,total)+'%)</span>';
+      seg.addEventListener('click',function(){healthFilter=healthFilter===s.k?'':s.k;scanFilter='';document.getElementById('scan-filter').value='';syncAll();render()});
+      bar.appendChild(seg);
+    });
+    syncHealthBar();
+    var note=document.getElementById('hbar-note');if(!note)return;
+    var issueApps=hc.BROKEN+hc.DEGRADED;
+    note.textContent=issueApps>0?fmtNum(issueApps)+' of '+fmtNum(total)+' applications have packaging issues affecting scan quality.':'All applications are packaging healthy.';
+  }
+
+  function syncHealthBar(){document.querySelectorAll('.hbar-seg').forEach(function(s){var cl=s.classList;s.classList.toggle('on',(healthFilter==='BROKEN'&&cl.contains('broken'))||(healthFilter==='DEGRADED'&&cl.contains('degraded'))||(healthFilter==='HEALTHY'&&cl.contains('healthy')))})}
+
+  function buildWorstApps(){
+    if(!hasNewCols||!cache.worstApps.length){hide('worst-wrap');hide('worst-section');hide('worst-divider');return}
+    show('worst-wrap');show('worst-section');show('worst-divider');
+    document.getElementById('worst-meta').textContent=fmtNum(cache.totalBadApps)+' apps with issues';
+    var list=document.getElementById('worst-list');list.innerHTML='';
+    var INITIAL_SHOW=5;
+    cache.worstApps.forEach(function(h,idx){
+      var vcls=h.verdict==='BROKEN'?'fail':h.verdict==='DEGRADED'?'warning':'pass';
+      var row=document.createElement('div');row.className='wa';
+      if(idx>=INITIAL_SHOW) row.style.display='none';
+      row.setAttribute('data-wa-extra',idx>=INITIAL_SHOW?'1':'0');
+      row.innerHTML='<span class="wa-rank">'+(idx+1)+'.</span><span class="wa-name" title="'+esc(h.name)+'">'+esc(h.name)+'</span><span class="wa-badge"><span class="vd '+vcls+'"><span class="dt"></span>'+h.verdict+'</span></span><span class="wa-counts">'+(h.fatals?'<span class="wf">'+h.fatals+'F</span>':'')+(h.warns?'<span class="ww">'+h.warns+'W</span>':'')+'</span>'+(h.topCat?'<span class="wa-cat" title="'+esc(h.topCat)+'">'+esc(h.topCat)+'</span>':'')+'<span class="wa-action">Filter &#8594;</span>';
+      row.addEventListener('click',function(){appFilter=h.name;document.getElementById('app-filter').value=appFilter;scanFilter='';document.getElementById('scan-filter').value='';healthFilter='';updateAppName();syncAll();render()});
+      list.appendChild(row);
+    });
+    var hiddenCount=cache.worstApps.length-INITIAL_SHOW;
+    if(hiddenCount>0){
+      var expandBtn=document.createElement('div');expandBtn.className='worst-more';expandBtn.style.cursor='pointer';
+      expandBtn.textContent='Show '+fmtNum(hiddenCount)+' more apps';
+      expandBtn.addEventListener('click',function(){
+        list.querySelectorAll('[data-wa-extra="1"]').forEach(function(el){el.style.display=''});
+        expandBtn.remove();
+      });
+      list.appendChild(expandBtn);
+    }
+    if(cache.totalBadApps>20){var note=document.createElement('div');note.className='worst-more';note.textContent='+ '+fmtNum(cache.totalBadApps-20)+' more beyond top 20 (use app filter or search)';list.appendChild(note)}
+    // Expanded by default
+    var body=document.getElementById('worst-body'),toggle=document.getElementById('worst-toggle');
+    body.classList.remove('collapsed');toggle.innerHTML='&#9660;';
+    document.getElementById('worst-header').onclick=function(){var isC=body.classList.toggle('collapsed');toggle.innerHTML=isC?'&#9654;':'&#9660;'};
+  }
+
+  function normalizeIssue(raw){var t=raw.trim();if(!t)return null;var lo=t.toLowerCase();if(lo==='found (optional)')return null;if(lo.indexOf('prescan issue details not available')!==-1)return null;if(lo.indexOf('module data from published report')!==-1)return null;if(lo.indexOf('no supporting files or pdb')!==-1)return'Missing PDB / supporting files';if(lo.indexOf('pdb files not loadable')!==-1)return'PDB files not loadable';if(lo.indexOf('compiled without debug symbols')!==-1)return'Compiled without debug symbols';if(lo.indexOf('not found (optional)')!==-1)return'Missing supporting files (optional)';if(lo.indexOf('missing supporting files')!==-1)return'Missing supporting files (optional)';if(lo.indexOf('support issue (fatal)')!==-1||lo.indexOf('support issue: fatal')!==-1||(lo.indexOf('(fatal)')!==-1&&lo.indexOf('support')!==-1))return'Support issue - fatal';if(lo.indexOf('too many parse failures')!==-1)return'Support issue - fatal';if(lo.indexOf('support issue')!==-1&&lo.indexOf('cannot parse')!==-1)return'Support issue - parse failure';if(lo.indexOf('support issue')!==-1)return'Support issue (non-fatal)';if(lo.indexOf('jsp compilation')!==-1)return'JSP compilation errors';if(lo.indexOf('php files could not')!==-1)return'PHP compilation failure';if(lo.indexOf('no compiled')!==-1||lo.indexOf('no scannable')!==-1)return'No scannable binaries';if(lo.indexOf('corrupt header')!==-1)return'Corrupt binary headers';if(lo.indexOf('obfuscation')!==-1)return'Obfuscated code detected';if(lo.indexOf('unsupported')!==-1)return'Unsupported compiler/platform';if(lo.indexOf('no builds found')!==-1)return'No builds found';if(lo.indexOf('no modules found')!==-1)return'No modules found';if(lo.indexOf('could not retrieve')!==-1)return'API error';if(lo.indexOf('unexpected error')!==-1)return'API error';if(t.length>80)return t.substring(0,60)+'...';return t}
+  function legacyBarSeverity(label){var lo=label.toLowerCase();if(lo.indexOf('fatal')!==-1||lo==='no builds found'||lo==='no modules found'||lo==='api error'||lo.indexOf('pdb files not loadable')!==-1||lo.indexOf('corrupt')!==-1||lo.indexOf('unsupported compiler')!==-1)return'fatal';return'warn'}
+
+  function buildIssueBars(){
+    var counts=cache.issueCounts,sevMap=cache.issueSevMap;
+    var sorted=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a]});
+    if(!sorted.length){hide('ib-wrap');hide('ib-divider');return}show('ib-wrap');show('ib-divider');
+    var summary=document.getElementById('ib-summary'), list=document.getElementById('ib-list');
+    summary.innerHTML=''; list.innerHTML='';
+    var groups={fatal:[],warn:[],info:[]};
+    sorted.forEach(function(issue){var sev=sevMap[issue]||'warn'; if(!groups[sev])sev='warn'; groups[sev].push(issue)});
+    ['fatal','warn','info'].forEach(function(sev){
+      if(!groups[sev].length)return;
+      var wrap=document.createElement('div');wrap.className='ib-group';
+      var label=document.createElement('div');label.className='ib-group-label '+sev;label.textContent=sev==='fatal'?'Blocking issues':sev==='warn'?'Quality issues':'Informational issues';
+      wrap.appendChild(label);
+      var inner=document.createElement('div');inner.className='ib-list';
+      var max=counts[groups[sev][0]];
+      groups[sev].slice(0,3).forEach(function(issue){inner.appendChild(makeIssueBar(issue, counts[issue], max, sev))});
+      wrap.appendChild(inner);
+      summary.appendChild(wrap);
+    });
+    var overallMax=counts[sorted[0]];
+    sorted.slice(0,15).forEach(function(issue){list.appendChild(makeIssueBar(issue, counts[issue], overallMax, sevMap[issue]||'warn'))});
+    if(sorted.length>15){var note=document.createElement('div');note.style.cssText='font-size:11px;color:var(--muted);padding:6px 8px';note.textContent='+ '+(sorted.length-15)+' more issue types';list.appendChild(note)}
+    var toggle=document.getElementById('ib-toggle');
+    toggle.textContent=issueBreakdownOpen?'Hide detailed breakdown':'Show detailed breakdown';
+    list.classList.toggle('hidden', !issueBreakdownOpen);
+    toggle.onclick=function(){issueBreakdownOpen=!issueBreakdownOpen; list.classList.toggle('hidden', !issueBreakdownOpen); toggle.textContent=issueBreakdownOpen?'Hide detailed breakdown':'Show detailed breakdown'};
+  }
+
+  function makeIssueBar(issue,cnt,max,sev){
+    var p=(cnt/max*100).toFixed(1), barColor=sev==='fatal'?'var(--is-fatal)':sev==='info'?'var(--is-info)':'var(--is-warn)';
+    var row=document.createElement('div');row.className='ib';
+    row.innerHTML='<span class="il"><span class="sev-dot" style="background:'+barColor+'"></span><span title="'+esc(issue)+'">'+esc(issue)+'</span></span><div class="it"><div class="if" style="width:'+p+'%;background:'+barColor+'"></div></div><span class="ic">'+fmtNum(cnt)+'</span>';
+    row.addEventListener('click',function(){if(issFilter===issue){issFilter=null;document.querySelectorAll('.ib').forEach(function(r){r.classList.remove('on')})}else{document.querySelectorAll('.ib').forEach(function(r){r.classList.remove('on')});issFilter=issue;document.querySelectorAll('.ib').forEach(function(r){ if(r.textContent.indexOf(issue)!==-1)r.classList.add('on')})}render()});
+    return row
+  }
+
+  function rowMatchesIssueFilter(r){if(!issFilter)return true;if(hasNewCols){return(r['Issue Categories']||'').split(';').some(function(c){return c.trim()===issFilter})}var iss=r['_issues']||'',parts=iss.split(';');for(var i=0;i<parts.length;i++){if(normalizeIssue(parts[i])===issFilter)return true}return false}
+
+  function buildHealthFilter(){var el=document.getElementById('hf');el.innerHTML='';['all','BROKEN','DEGRADED','HEALTHY'].forEach(function(v){var b=document.createElement('button');b.className='fb'+(v===moduleHealthFilter?' on':'');b.textContent=v==='all'?'All':v.charAt(0)+v.slice(1).toLowerCase();b.dataset.h=v;b.addEventListener('click',function(){moduleHealthFilter=v;syncAll();render()});el.appendChild(b)})}
+  function syncHF(){document.querySelectorAll('#hf .fb').forEach(function(b){b.classList.toggle('on',b.dataset.h===moduleHealthFilter)})}
+
+  function buildAppFilter(){
+    var sel=document.getElementById('app-filter');
+    sel.innerHTML='';
+    var appNames={};
+    rows.forEach(function(r){var n=r['Application']||'';if(n)appNames[n]=true});
+    var sortedNames=Object.keys(appNames).sort();
+    sortedNames.forEach(function(name){
+      var opt=document.createElement('option');opt.value=name;opt.textContent=name;sel.appendChild(opt);
+    });
+    if(!appFilter && sortedNames.length>0) appFilter=sortedNames[0];
+    sel.value=appFilter;
+    updateAppName();
+    sel.onchange=function(){appFilter=this.value;scanFilter='';healthFilter='';buildScanFilter();updateAppName();syncAll();render()};
+  }
+  function updateAppName(){
+    var el=document.getElementById('app-name');
+    if(el) el.textContent=appFilter||'';
+  }
+
+  function buildScanFilter(){var sel=document.getElementById('scan-filter');sel.innerHTML='';if(!appFilter){sel.disabled=true;sel.innerHTML='<option value="">Select app first</option>';scanFilter='';sel.value='';sel.onchange=function(){scanFilter=''};return}sel.disabled=false;sel.innerHTML='<option value="">All scans</option>';var scans={};rows.forEach(function(r){if(r['Application']!==appFilter)return;var k=scanKey(r);if(!k)return;scans[k]=scanLabel(r)});Object.keys(scans).sort(function(a,b){return scans[b].localeCompare(scans[a])}).forEach(function(k){var opt=document.createElement('option');opt.value=k;opt.textContent=scans[k];sel.appendChild(opt)});if(scanFilter&&!(scanFilter in scans))scanFilter='';sel.value=scanFilter;sel.onchange=function(){scanFilter=this.value;render()}}
+
+  function buildHead(){var thead=document.getElementById('th'),tr=document.createElement('tr');cols.forEach(function(col){var th=document.createElement('th');if(col.w)th.style.width=col.w;if(col.nosort){th.innerHTML=''}else{th.innerHTML=col.l+' <span class="sa">&#9650;</span>';th.addEventListener('click',function(){if(sortCol===col.k){sortAsc=!sortAsc}else{sortCol=col.k;sortAsc=true}thead.querySelectorAll('th').forEach(function(t){t.classList.remove('sd')});th.classList.add('sd');th.querySelector('.sa').innerHTML=sortAsc?'&#9650;':'&#9660;';render()})}tr.appendChild(th)});thead.innerHTML='';thead.appendChild(tr)}
+
+  function filtered(){
+    var out=rows;
+    if(appFilter)out=out.filter(function(r){return r['Application']===appFilter});
+    if(scanFilter)out=out.filter(function(r){return scanKey(r)===scanFilter});
+    if(healthFilter&&hasNewCols){var ahm=cache.appHealthMap;out=out.filter(function(r){var h=ahm[r['Application']||''];return h&&h.verdict===healthFilter})}
+    if(moduleHealthFilter!=='all')out=out.filter(function(r){return getModuleHealth(r)===moduleHealthFilter});
+    if(hideDeps)out=out.filter(function(r){return r['Is Dependency']!=='True'});
+    if(issOnly)out=out.filter(function(r){var v=r['Verdict'];return v==='WARNING'||v==='FAIL'||v==='ERROR'});
+    if(issFilter)out=out.filter(rowMatchesIssueFilter);
+    if(searchVal){var q=searchVal.toLowerCase();out=out.filter(function(r){return cols.some(function(c){return(r[c.k]||'').toLowerCase().indexOf(q)!==-1})})}
+    if(sortCol){out=out.slice().sort(function(a,b){var va=a[sortCol]||'',vb=b[sortCol]||'';var na=parseFloat(va),nb=parseFloat(vb);if(!isNaN(na)&&!isNaN(nb)&&va!==''&&vb!=='')return sortAsc?na-nb:nb-na;return sortAsc?va.localeCompare(vb):vb.localeCompare(va)})}
+    return out;
+  }
+
+  function closeOpenDetail(){if(openDetailTr){var next=openDetailTr.nextElementSibling;if(next&&next.classList.contains('detail-row'))next.remove();openDetailTr.classList.remove('expanded');if(openDetailBtn){openDetailBtn.classList.remove('open');openDetailBtn.innerHTML='&#9654;'}openDetailTr=null;openDetailBtn=null}}
+
+  function render(){
+    closeOpenDetail();var data=filtered(),tb=document.getElementById('tb'),rc=document.getElementById('rc');
+    rc.textContent=fmtNum(data.length)+' unique module'+(data.length!==1?'s':'')+' shown';
+    if(!data.length){tb.innerHTML='';show('es');return}hide('es');
+    var slice=data.slice(0,500),frag=document.createDocumentFragment();
+    slice.forEach(function(row){
+      var tr=document.createElement('tr'),html='';
+      cols.forEach(function(col){var cls=col.c?' class="'+col.c+'"':'',val=row[col.k]||'';
+        if(col.k==='_expand'){var hasDetail=hasNewCols&&(row['Packaging Recommendation']||row['Issue Categories']||row['_issues']);html+='<td'+(col.w?' style="width:'+col.w+'"':'')+'>'+(hasDetail?'<button class="row-expand-btn" data-x="1">&#9654;</button>':'')+'</td>'}
+        else if(col.k==='Health'){var mh=getModuleHealth(row),hcls=mh==='BROKEN'?'fail':mh==='DEGRADED'?'warning':'pass';html+='<td><span class="vd '+hcls+'"><span class="dt"></span>'+mh+'</span></td>'}
+        else if(col.k==='Issue Categories'){html+='<td'+cls+'>'+buildCatPillsHTML(val)+'</td>'}
+        else if(col.k==='Is Dependency'){html+='<td>'+(val==='True'?'<span class="dep">3rd party</span>':'')+'</td>'}
+        else if(col.k==='Fatal Errors'){html+='<td>'+(val==='True'?'<span class="fatal-yes">Yes</span>':'')+'</td>'}
+        else if(col.k==='Status'){if(val&&val!=='OK'&&val!=='Published'){html+='<td'+cls+'><span class="status-issue" title="'+esc(val)+'">'+esc(val.length>40?val.substring(0,37)+'...':val)+'</span></td>'}else html+='<td'+cls+'>'+esc(val)+'</td>'}
+        else if(col.k==='_issues'){html+='<td'+cls+'>'+buildIssueCellHTML(val)+'</td>'}
+        else{html+='<td'+cls+'>'+esc(val)+'</td>'}});
+      tr.innerHTML=html;tr._rowData=row;frag.appendChild(tr)});
+    tb.innerHTML='';tb.appendChild(frag);
+    tb.querySelectorAll('.row-expand-btn[data-x]').forEach(function(btn){btn.addEventListener('click',function(e){e.stopPropagation();var tr=btn.closest('tr'),rd=tr._rowData;if(openDetailTr===tr){closeOpenDetail();return}closeOpenDetail();tr.classList.add('expanded');btn.classList.add('open');btn.innerHTML='&#9660;';openDetailTr=tr;openDetailBtn=btn;var detailTr=document.createElement('tr');detailTr.className='detail-row';var detailTd=document.createElement('td');detailTd.setAttribute('colspan',cols.length);detailTd.appendChild(buildDetailPanel(rd));detailTr.appendChild(detailTd);tr.parentNode.insertBefore(detailTr,tr.nextSibling)})});
+    tb.querySelectorAll('.cat-more-btn').forEach(function(btn){btn.addEventListener('click',function(e){e.stopPropagation();var wrap=btn.closest('.cat-wrap');wrap.querySelectorAll('.cat-extra').forEach(function(el){el.style.display=''});btn.remove()})});
+    tb.querySelectorAll('.iss-expand-btn').forEach(function(btn){btn.addEventListener('click',function(){var trunc=btn.previousElementSibling;var open=trunc.classList.toggle('open');btn.textContent=open?'Show less':'Show more ('+trunc.getAttribute('data-cnt')+' issues)'})});
+    if(data.length>500)rc.textContent+=' (first 500 of '+fmtNum(data.length)+')';
+    syncCardHighlights();
+  }
+
+  function buildCatPillsHTML(val){if(!val)return'';var cats=val.split(';').map(function(c){return c.trim()}).filter(Boolean);if(!cats.length)return'';var maxShow=2,html='<div class="cat-wrap">';for(var i=0;i<cats.length;i++){var c=cats[i],sev=catSeverity(c),display=c.length>25?c.substring(0,23)+'..':c;html+='<span class="cat-pill cat-'+sev+(i>=maxShow?' cat-extra" style="display:none"':'"')+' title="'+esc(c)+'">'+esc(display)+'</span>'}if(cats.length>maxShow)html+='<span class="cat-pill cat-more cat-more-btn">+'+(cats.length-maxShow)+' more</span>';return html+'</div>'}
+
+  function buildIssueCellHTML(val){if(!val)return'';var parts=val.split(';').map(function(s){return s.trim()}).filter(Boolean);var totalLen=parts.reduce(function(a,b){return a+b.length},0),html='';if(totalLen<=120&&parts.length<=3){parts.forEach(function(p){html+='<span class="issue-line">'+esc(p)+'</span>'})}else{html+='<div class="issue-trunc" data-cnt="'+parts.length+'">';parts.forEach(function(p){html+='<span class="issue-line">'+esc(p)+'</span>'});html+='</div><button class="expand-btn iss-expand-btn">Show more ('+parts.length+' issues)</button>'}return html}
+
+  var ISSUE_EXPLAIN={
+    'no supporting files or pdb':{text:'PDB (Program Database) files or supporting libraries were not included in the upload. For .NET, rebuild in Debug mode and include PDB files alongside DLLs. For Java, include all dependency JARs. This is a packaging issue on the build/upload side.',sev:'warn'},
+    'pdb files not loadable':{text:'PDB files were uploaded but could not be loaded - typically a version mismatch between the DLL and PDB, or a corrupted file. Rebuild in Debug mode and ensure the PDB matches the exact DLL being uploaded.',sev:'fatal'},
+    'pdb files missing':{text:'Required PDB (debug symbol) files were not included in the upload. For .NET applications, PDB files must be uploaded alongside the DLLs/EXEs. Rebuild in Debug mode and include all .pdb files in the upload package.',sev:'fatal'},
+    'missing pdb':{text:'Required PDB (debug symbol) files were not found for this module. PDB files are necessary for Veracode to perform accurate static analysis on .NET binaries. Rebuild in Debug mode and include matching PDB files.',sev:'fatal'},
+    'compiled without debug symbols':{text:'The binary was compiled without debug information. Debug symbols are needed for accurate line-level findings. Rebuild with debug symbols enabled (Debug configuration for .NET, -g flag for C/C++).',sev:'warn'},
+    'not found (optional)':{text:'An optional supporting file referenced by the module was not included in the upload. This is non-blocking but may reduce scan coverage. Including the file in future uploads can improve result quality.',sev:'info'},
+    'found (optional)':{text:'An optional supporting file was located in the upload. No action needed.',sev:'info'},
+    'jsp compilation':{text:'JSP files failed to compile during prescan. The upload is likely missing required servlet API JARs or compile-time dependencies. Include all JARs from WEB-INF/lib and ensure the correct Java version is targeted.',sev:'warn'},
+    'missing debug symbols':{text:'The uploaded binary lacks debug symbols. Rebuild with debug symbols enabled so Veracode can map findings to source code lines.',sev:'warn'},
+    'missing debug info':{text:'Debug information is absent from the binary. Without it, findings cannot be mapped to specific source lines. Rebuild with debug info enabled in your build configuration.',sev:'warn'},
+    'incremental linking':{text:'The binary was built with incremental linking enabled, which can interfere with static analysis. Rebuild with incremental linking disabled (/INCREMENTAL:NO in MSVC).',sev:'warn'},
+    'parse failure':{text:'The binary could not be fully parsed. This may indicate a corrupted upload, unsupported build flags, or heavy obfuscation. Try a clean rebuild and re-upload.',sev:'warn'},
+    'minified':{text:'The uploaded JavaScript/CSS is minified. The scan will still run, but findings will reference minified variable names, making triage harder. Upload unminified source where possible.',sev:'warn'},
+    'obfuscat':{text:'The code appears to be obfuscated. The scan will still run, but finding accuracy and triage clarity may be reduced. Upload a non-obfuscated build if available.',sev:'warn'},
+    'php files could not':{text:'PHP source files failed to compile during prescan. Ensure the upload includes all required PHP files and dependencies, and that the code compiles without syntax errors locally.',sev:'warn'},
+    'unsupported':{text:'This module uses a compiler, platform, or framework not currently supported by Veracode. Check the Veracode packaging documentation for the list of supported compilers and platforms, and adjust the build accordingly.',sev:'fatal'},
+    'corrupt header':{text:'The binary has corrupted or unrecognizable headers. The file may have been truncated during upload or is not a valid compiled binary. Rebuild cleanly and re-upload.',sev:'fatal'},
+    'fatal':{text:'A fatal prescan error prevents this module from being scanned. This is a packaging or build issue that must be resolved before the module can be analyzed.',sev:'fatal'},
+    'support issue':{text:'A support-level issue was detected during prescan. If the problem persists after verifying the packaging, open a Veracode support ticket for further guidance.',sev:'warn'},
+    'no scannable':{text:'No scannable binaries were found in the uploaded files. Ensure compiled binaries (not raw source code) are being uploaded per the Veracode packaging guide for the relevant language.',sev:'fatal'},
+    'no builds found':{text:'No builds exist for this application profile. A build must be created and files uploaded before prescan can run.',sev:'fatal'},
+    'no modules found':{text:'No modules were identified during prescan. The uploaded files likely do not contain recognizable application code. Review the packaging guide for the target language.',sev:'fatal'}
+  };
+
+  function getIssueExplanation(issueText){
+    if(!issueText)return null;
+    var lo=issueText.toLowerCase();
+    var keys=Object.keys(ISSUE_EXPLAIN);
+    for(var i=0;i<keys.length;i++){
+      if(lo.indexOf(keys[i])!==-1)return ISSUE_EXPLAIN[keys[i]];
+    }
+    return null;
+  }
+
+  function buildDetailPanel(row){var sev=(row['Issue Severity']||'clean').toLowerCase(),sevCls='sev-'+(sev==='warning'?'warning':sev);var panel=document.createElement('div');panel.className='detail-panel '+sevCls;
+
+    function makeSection(label) {
+      var sec = document.createElement('div');
+      sec.className = 'detail-section';
+      var lbl = document.createElement('div');
+      lbl.className = 'detail-section-label';
+      lbl.textContent = label;
+      sec.appendChild(lbl);
+      return sec;
+    }
+
+    // Module info section
+    var metaBits=[];
+    if(val(row,'Scan Context'))metaBits.push('Context: '+val(row,'Scan Context'));
+    if(val(row,'Scan State'))metaBits.push('State: '+val(row,'Scan State'));
+    if(val(row,'Build ID'))metaBits.push('Build '+val(row,'Build ID'));
+    if(val(row,'Module ID'))metaBits.push('Module ID '+val(row,'Module ID'));
+    else if(val(row,'App File ID'))metaBits.push('File ID '+val(row,'App File ID'));
+    if(val(row,'Platform'))metaBits.push(val(row,'Platform'));
+    if(val(row,'Size'))metaBits.push(val(row,'Size'));
+    var daysAgo=val(row,'Days Since Scan');if(daysAgo)metaBits.push(daysAgo+'d ago');
+    var rawStatus=val(row,'Status');
+    if(rawStatus&&rawStatus!=='OK'&&rawStatus!=='Published')metaBits.push('Status: '+rawStatus);
+    if(metaBits.length){var sec=makeSection('Module Info');var meta=document.createElement('div');meta.className='detail-meta';metaBits.forEach(function(b){var sp=document.createElement('span');sp.textContent=b;meta.appendChild(sp)});sec.appendChild(meta);panel.appendChild(sec)}
+
+    // Packaging recommendations section
+    var recs=row['Packaging Recommendation']||'';
+    if(recs){var sec=makeSection('Packaging Recommendations');var ul=document.createElement('ul');ul.className='detail-recs';recs.split(';').forEach(function(r){r=r.trim();if(!r)return;var li=document.createElement('li');li.textContent=r;ul.appendChild(li)});sec.appendChild(ul);panel.appendChild(sec)}
+
+    // Matched categories section
+    var cats=row['Issue Categories']||'';
+    if(cats){var sec=makeSection('Matched Categories');var cd=document.createElement('div');cd.className='detail-cats';cats.split(';').forEach(function(c){c=c.trim();if(!c)return;var pill=document.createElement('span');pill.className='cat-pill cat-'+catSeverity(c);pill.textContent=c;cd.appendChild(pill)});sec.appendChild(cd);panel.appendChild(sec)}
+
+    // Prescan findings section - includes Status when it indicates a problem
+    var rawIssues=row['_issues']||'';
+    var statusIssue=(rawStatus&&rawStatus!=='OK'&&rawStatus!=='Published')?rawStatus:'';
+    if(rawIssues||statusIssue){
+      var sec=makeSection('Prescan Findings');
+      var issWrap=document.createElement('div');
+      if(statusIssue){
+        var sExp=getIssueExplanation(statusIssue);
+        var sItem=document.createElement('div');sItem.className='detail-issue-item'+(sExp?' di-'+sExp.sev:'');
+        var sTxt=document.createElement('div');sTxt.className='detail-issue-text';sTxt.textContent='Module Status: '+statusIssue;sItem.appendChild(sTxt);
+        if(sExp){var se=document.createElement('div');se.className='detail-issue-explain sev-'+sExp.sev;se.textContent=sExp.text;sItem.appendChild(se)}
+        issWrap.appendChild(sItem);
+      }
+      if(rawIssues){
+        rawIssues.split(';').forEach(function(p){
+          p=p.trim();if(!p)return;
+          var explain=getIssueExplanation(p);
+          var item=document.createElement('div');item.className='detail-issue-item'+(explain?' di-'+explain.sev:'');
+          var txt=document.createElement('div');txt.className='detail-issue-text';txt.textContent=p;item.appendChild(txt);
+          if(explain){var ex=document.createElement('div');ex.className='detail-issue-explain sev-'+explain.sev;ex.textContent=explain.text;item.appendChild(ex)}
+          issWrap.appendChild(item);
+        });
+      }
+      sec.appendChild(issWrap);panel.appendChild(sec);
+    }
+    if(!recs&&!cats&&!rawIssues&&!statusIssue){var sec=makeSection('Details');var empty=document.createElement('div');empty.className='detail-raw';empty.textContent='No additional details available for this module.';sec.appendChild(empty);panel.appendChild(sec)}
+    return panel;
+  }
+
+  function copySummary(){
+    var hc=cache.healthCounts,mc=cache.moduleHealthCounts,ahm=cache.appHealthMap;
+    var lines=['Veracode Scan Health Summary','','Apps: '+fmtNum(cache.totalApps)+' | Modules: '+fmtNum(rows.length)];
+    if(hasNewCols) lines.push('Portfolio overview: '+hc.BROKEN+' Broken, '+hc.DEGRADED+' Degraded, '+hc.HEALTHY+' Healthy');
+    lines.push('Module summary: '+mc.BROKEN+' Broken, '+mc.DEGRADED+' Degraded, '+mc.HEALTHY+' Healthy');
+    if(hasNewCols){
+      var brokenList=Object.keys(ahm).filter(function(k){return ahm[k].verdict==='BROKEN'}).sort(function(a,b){return ahm[b].fatals-ahm[a].fatals}).slice(0,10);
+      if(brokenList.length){
+        lines.push('');
+        lines.push('Top broken apps:');
+        brokenList.forEach(function(k){
+          var h=ahm[k];
+          var fatalCats=Object.keys(h.cats).filter(function(c){return FATAL_CATEGORIES[c.toLowerCase()]});
+          lines.push('  '+h.name+' ('+h.fatals+'F, '+h.warns+'W)'+(fatalCats.length?' ['+fatalCats.join(', ')+']':''));
+        });
+      }
+      var sorted=Object.keys(cache.issueCounts).sort(function(a,b){return cache.issueCounts[b]-cache.issueCounts[a]}).slice(0,10);
+      if(sorted.length){
+        lines.push('');
+        lines.push('Top issue categories:');
+        sorted.forEach(function(c){lines.push('  '+c+': '+cache.issueCounts[c])});
+      }
+    }
+    var text=lines.join(String.fromCharCode(10));
+    navigator.clipboard.writeText(text).then(function(){
+      var btn=document.getElementById('copy-btn');
+      btn.classList.add('copied');
+      btn.textContent='Copied!';
+      setTimeout(function(){btn.classList.remove('copied');btn.textContent='Copy summary'},2000);
+    });
+  }
+
+
+  var drop=document.getElementById('drop'),fi=document.getElementById('fi');
+  drop.addEventListener('click',function(){fi.click()});
+  drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('over')});
+  drop.addEventListener('dragleave',function(){drop.classList.remove('over')});
+  drop.addEventListener('drop',function(e){e.preventDefault();drop.classList.remove('over');if(e.dataTransfer.files[0])readF(e.dataTransfer.files[0])});
+  fi.addEventListener('change',function(e){if(e.target.files[0])readF(e.target.files[0])});
+  function readF(f){var r=new FileReader();r.onload=function(e){load(e.target.result)};r.readAsText(f)}
+
+  document.getElementById('dep-btn').addEventListener('click',function(){hideDeps=!hideDeps;this.classList.toggle('on',hideDeps);this.textContent=hideDeps?'Show dependencies':'Hide dependencies';render()});
+  document.getElementById('iss-btn').addEventListener('click',function(){issOnly=!issOnly;this.classList.toggle('on',issOnly);render()});
+  document.getElementById('search').addEventListener('input',function(){searchVal=this.value;render()});
+  document.getElementById('copy-btn').addEventListener('click',copySummary);
+  document.getElementById('help-btn').addEventListener('click',function(){document.getElementById('help-overlay').classList.add('open')});
+  document.getElementById('help-close').addEventListener('click',function(){document.getElementById('help-overlay').classList.remove('open')});
+  document.getElementById('help-overlay').addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')});
+  document.getElementById('reset-btn').addEventListener('click',function(){
+    rows=[];sortCol=null;sortAsc=true;moduleHealthFilter='all';hideDeps=false;issOnly=false;issFilter=null;searchVal='';appFilter='';scanFilter='';healthFilter='';issueBreakdownOpen=false;hasNewCols=false;openDetailTr=null;openDetailBtn=null;
+    cache={appHealthMap:{},healthCounts:{BROKEN:0,DEGRADED:0,HEALTHY:0},moduleHealthCounts:{BROKEN:0,DEGRADED:0,HEALTHY:0},totalApps:0,verdictCounts:{PASS:0,WARNING:0,FAIL:0,ERROR:0},severityCounts:{FATAL:0,WARNING:0,INFO:0,CLEAN:0},appsWithIssues:0,issueCounts:{},issueSevMap:{},worstApps:[],totalBadApps:0};
+    document.getElementById('app-filter').value='';document.getElementById('scan-filter').value='';hide('report');show('upload');fi.value='';document.getElementById('search').value='';hide('copy-btn');hide('help-btn');hide('worst-wrap');hide('worst-section');hide('worst-divider');hide('ib-wrap');hide('ib-divider');
+  });
+})();
+</script>
+</body>
+</html>
